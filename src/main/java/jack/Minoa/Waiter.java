@@ -25,4 +25,8 @@ public class Waiter {
     private String email;
     private int positionOrder;
     private boolean isLast;
+
+    @OneToOne
+    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    private User user;
 }
