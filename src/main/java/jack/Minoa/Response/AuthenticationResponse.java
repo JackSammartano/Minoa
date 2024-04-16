@@ -1,4 +1,4 @@
-package jack.Minoa.Auth;
+package jack.Minoa.Response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

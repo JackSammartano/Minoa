@@ -1,4 +1,4 @@
-package jack.Minoa;
+package jack.Minoa.Entity;
 
 import jakarta.persistence.*;
 

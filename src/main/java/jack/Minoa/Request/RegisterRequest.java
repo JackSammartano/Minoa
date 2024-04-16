@@ -1,6 +1,6 @@
-package jack.Minoa.Auth;
+package jack.Minoa.Request;
 
-import jack.Minoa.User;
+import jack.Minoa.Entity.User;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import lombok.AllArgsConstructor;

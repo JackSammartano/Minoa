@@ -1,5 +1,6 @@
-package jack.Minoa;
+package jack.Minoa.Entity;
 
+import jack.Minoa.Entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 

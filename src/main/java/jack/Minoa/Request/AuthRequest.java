@@ -1,4 +1,4 @@
-package jack.Minoa.DTO;
+package jack.Minoa.Request;
 
 import lombok.Getter;
 import lombok.Setter;

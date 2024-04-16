@@ -1,5 +1,7 @@
 package jack.Minoa.Auth;
 
+import jack.Minoa.Request.RegisterRequest;
+import jack.Minoa.Response.AuthenticationResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

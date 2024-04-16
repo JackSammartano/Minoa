@@ -1,4 +1,6 @@
-package jack.Minoa;
+package jack.Minoa.Entity;
+import jack.Minoa.Entity.Events;
+import jack.Minoa.Entity.Waiter;
 import jakarta.persistence.*;
 import lombok.*;
 
