@@ -2,15 +2,19 @@ package jack.Minoa;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
-@Getter
-@Setter
-@EqualsAndHashCode
-@ToString
-@AllArgsConstructor
-@NoArgsConstructor
+import java.util.Collection;
+import java.util.List;
+
+@Data
 @Entity
-public class User {
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class User implements UserDetails {
 
     public enum AccessLevel {DIRECTOR, WAITER}
 
@@ -21,4 +25,30 @@ public class User {
     private String password;
     @Enumerated(EnumType.STRING)
     private AccessLevel accessLevel;
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority(accessLevel.name()));
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
 }
