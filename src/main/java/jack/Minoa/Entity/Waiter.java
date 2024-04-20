@@ -4,6 +4,8 @@ import jack.Minoa.Entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.List;
+
 @Getter
 @Setter
 @EqualsAndHashCode
@@ -11,6 +13,7 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
+@Builder
 public class Waiter {
 
     public enum BelongingGroup {MALE, FEMALE , SECONDARY, EXTRA}
@@ -27,7 +30,10 @@ public class Waiter {
     private int positionOrder;
     private boolean isLast;
 
-    @OneToOne
+    @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     private User user;
+
+    @ManyToMany(mappedBy = "waiters")
+    private List<Event> events; // relazione inversa
 }

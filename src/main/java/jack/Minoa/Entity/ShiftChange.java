@@ -24,5 +24,5 @@ public class ShiftChange {
 
     @ManyToOne
     @JoinColumn(name = "event_id", nullable = false)
-    private Events event; // Evento associato al cambio
+    private Event event; // Evento associato al cambio
 }

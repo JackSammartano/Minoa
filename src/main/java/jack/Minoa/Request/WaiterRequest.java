@@ -1,6 +1,7 @@
 package jack.Minoa.Request;
 
 import jack.Minoa.Entity.User;
+import jack.Minoa.Entity.Waiter;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import lombok.AllArgsConstructor;
@@ -12,8 +13,16 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class UpdateUserRequest {
+public class WaiterRequest {
 
+    private String name;
+    private String surname;
+    @Enumerated(EnumType.STRING)
+    private Waiter.BelongingGroup belongingGroup;
+    private Long telephoneNumber;
+    private String email;
+    private int positionOrder;
+    private boolean isLast;
     private String username;
     private String password;
     @Enumerated(EnumType.STRING)

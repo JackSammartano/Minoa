@@ -1,6 +1,7 @@
 package jack.Minoa;
 
 import jack.Minoa.Entity.User;
+import jack.Minoa.Request.RegisterRequest;
 import jack.Minoa.Request.UpdateUserRequest;
 import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,6 +18,16 @@ public class UserService {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
     }
+
+    public void createUser (RegisterRequest registerRequest){
+        User user = User.builder()
+                .username(registerRequest.getUsername())
+                .password(passwordEncoder.encode(registerRequest.getPassword()))
+                .accessLevel(registerRequest.getAccessLevel())
+                .build();
+        userRepository.save(user);
+    }
+
     @Transactional
     public User updateUser(Long id, UpdateUserRequest updateUserRequest) {
         return userRepository.findById(id)
@@ -28,6 +39,16 @@ public class UserService {
                     user.setAccessLevel(updateUserRequest.getAccessLevel());
                     return userRepository.save(user);
                 })
+                .orElseThrow(() -> new RuntimeException("User not found with id " + id));
+    }
+
+    @Transactional
+    public void deleteUser(Long id){
+        userRepository.delete(readUser(id));
+    }
+
+    public User readUser(Long id){
+        return userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id " + id));
     }
 }

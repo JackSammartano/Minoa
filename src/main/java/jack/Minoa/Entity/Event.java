@@ -3,6 +3,8 @@ package jack.Minoa.Entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
+import java.util.List;
+
 import lombok.*;
 
 @Getter
@@ -12,11 +14,13 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-public class Events {
+@Builder
+public class Event {
 
     public enum Eventstype {MATRIMONIO, BANCHETTO}
     public enum MealType {MATTINA, SERA}
-    public enum EventLocation {MATTINA, SERA}
+    public enum EventLocation {MINOA, COLORADO}
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -29,4 +33,12 @@ public class Events {
     private MealType mealType;
     @Enumerated(EnumType.STRING)
     private EventLocation eventLocation;
+
+    @ManyToMany
+    @JoinTable(
+            name = "work_shift", // Nome della tabella di join
+            joinColumns = @JoinColumn(name = "event_id"), // Colonna che fa riferimento a Event
+            inverseJoinColumns = @JoinColumn(name = "waiter_id") // Colonna che fa riferimento a Waiter
+    )
+    private List<Waiter> waiters;
 }
