@@ -9,6 +9,7 @@ import lombok.*;
 @ToString
 @AllArgsConstructor
 @NoArgsConstructor
+@Entity
 public class ShiftChange {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

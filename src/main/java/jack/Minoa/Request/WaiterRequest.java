@@ -22,7 +22,7 @@ public class WaiterRequest {
     private Long telephoneNumber;
     private String email;
     private int positionOrder;
-    private boolean isLast;
+    private boolean latest;
     private String username;
     private String password;
     @Enumerated(EnumType.STRING)

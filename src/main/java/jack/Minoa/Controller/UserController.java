@@ -1,7 +1,8 @@
-package jack.Minoa;
+package jack.Minoa.Controller;
 
 import jack.Minoa.Entity.User;
 import jack.Minoa.Request.UpdateUserRequest;
+import jack.Minoa.Service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

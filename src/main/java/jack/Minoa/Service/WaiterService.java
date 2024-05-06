@@ -1,15 +1,20 @@
-package jack.Minoa;
+package jack.Minoa.Service;
 
 import jack.Minoa.Entity.User;
 import jack.Minoa.Entity.Waiter;
 import jack.Minoa.Request.UpdateUserRequest;
 import jack.Minoa.Request.WaiterRequest;
+import jack.Minoa.Repository.UserRepository;
+import jack.Minoa.Repository.WaiterRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
-public class WaiterService {
+public class  WaiterService {
 
     private final WaiterRepository waiterRepository;
     private final UserService userService;
@@ -21,7 +26,7 @@ public class WaiterService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public void createWaiter (WaiterRequest waiterRequest){
+        public Waiter createWaiter (WaiterRequest waiterRequest){
         User user = User.builder()
                 .username(waiterRequest.getUsername())
                 .password(passwordEncoder.encode(waiterRequest.getPassword()))
@@ -34,9 +39,10 @@ public class WaiterService {
                 .telephoneNumber(waiterRequest.getTelephoneNumber())
                 .email(waiterRequest.getEmail())
                 .positionOrder(waiterRequest.getPositionOrder())
-                .isLast(waiterRequest.isLast())
+                .latest(waiterRequest.isLatest())
                 .build();
         waiter.setUser(user);
+        return waiterRepository.save(waiter);
     }
 
     public Waiter readWaiter (Long id){
@@ -45,6 +51,7 @@ public class WaiterService {
     }
 
     public void deleteWaiter(Long id){
+
         waiterRepository.delete(readWaiter(id));
     }
 
@@ -57,7 +64,7 @@ public class WaiterService {
         waiter.setTelephoneNumber(waiterRequest.getTelephoneNumber());
         waiter.setEmail(waiterRequest.getEmail());
         waiter.setPositionOrder(waiterRequest.getPositionOrder());
-        waiter.setLast(waiterRequest.isLast());
+        waiter.setLatest(waiterRequest.isLatest());
 
         UpdateUserRequest updateUserRequest = UpdateUserRequest.builder()
                 .username(waiterRequest.getUsername())
@@ -67,5 +74,34 @@ public class WaiterService {
 
         waiter.setUser(userService.updateUser(waiter.getUser().getId(), updateUserRequest));
         return waiterRepository.save(waiter);
+    }
+
+    public List<Waiter> resetLatestWaiters(List<Waiter> newestLatestWaiter){
+        List<Waiter> previousLatestWaiters = waiterRepository.findAllByLatest(true);
+        for(Waiter w : previousLatestWaiters){
+            w.setLatest(false);
+            waiterRepository.save(w);
+        }
+        for(Waiter w : newestLatestWaiter){
+            Waiter u = readWaiter(w.getId());
+            u.setLatest(true);
+            waiterRepository.save(u);
+        }
+        return waiterRepository.findAllByLatest(true);
+    }
+
+    public List<Waiter> getAllWaitersByBelongingGroup(Waiter.BelongingGroup belongingGroup) {
+        return waiterRepository.findByBelongingGroup(belongingGroup);
+    }
+
+    public List<Waiter> setLatestWaiter(List<Waiter> waiterToSetLatest){
+        List<Waiter> result = new ArrayList<>();
+        for(Waiter w : waiterToSetLatest){
+            Waiter waiter = readWaiter(w.getId());
+            waiter.setLatest(true);
+            waiterRepository.save(waiter);
+            result.add(waiter);
+        }
+        return result;
     }
 }

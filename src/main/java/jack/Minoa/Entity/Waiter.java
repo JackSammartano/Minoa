@@ -1,6 +1,5 @@
 package jack.Minoa.Entity;
 
-import jack.Minoa.Entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -28,7 +27,7 @@ public class Waiter {
     private Long telephoneNumber;
     private String email;
     private int positionOrder;
-    private boolean isLast;
+    private boolean latest;
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "user_id", referencedColumnName = "id")

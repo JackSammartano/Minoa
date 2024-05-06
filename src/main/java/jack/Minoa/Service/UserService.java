@@ -1,8 +1,9 @@
-package jack.Minoa;
+package jack.Minoa.Service;
 
 import jack.Minoa.Entity.User;
 import jack.Minoa.Request.RegisterRequest;
 import jack.Minoa.Request.UpdateUserRequest;
+import jack.Minoa.Repository.UserRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,7 @@ public class UserService {
 
     @Transactional
     public void deleteUser(Long id){
+
         userRepository.delete(readUser(id));
     }
 

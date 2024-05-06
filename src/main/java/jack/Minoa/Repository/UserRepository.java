@@ -1,4 +1,4 @@
-package jack.Minoa;
+package jack.Minoa.Repository;
 
 import jack.Minoa.Entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;

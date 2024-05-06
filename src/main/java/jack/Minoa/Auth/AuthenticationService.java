@@ -4,7 +4,7 @@ import jack.Minoa.Request.RegisterRequest;
 import jack.Minoa.Response.AuthenticationResponse;
 import jack.Minoa.Security.JwtService;
 import jack.Minoa.Entity.User;
-import jack.Minoa.UserRepository;
+import jack.Minoa.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
