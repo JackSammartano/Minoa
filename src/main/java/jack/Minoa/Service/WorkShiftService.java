@@ -1,8 +1,10 @@
 package jack.Minoa.Service;
 
 import jack.Minoa.Entity.Event;
+import jack.Minoa.Entity.ShiftBackup;
 import jack.Minoa.Entity.Waiter;
 import jack.Minoa.Repository.EventRepository;
+import jack.Minoa.Repository.ShiftBackupRepository;
 import jack.Minoa.Repository.WaiterRepository;
 import jack.Minoa.Response.WorkShiftResponse;
 import org.springframework.stereotype.Service;
@@ -16,16 +18,20 @@ public class WorkShiftService {
     private final EventRepository eventRepository;
     private final WaiterService waiterService;
     private final WaiterRepository waiterRepository;
+    private final ShiftBackupRepository shiftBackupRepository;
 
-    public WorkShiftService(EventService eventService, EventRepository eventRepository, WaiterService waiterService, WaiterRepository waiterRepository) {
+    public WorkShiftService(EventService eventService, EventRepository eventRepository, WaiterService waiterService, WaiterRepository waiterRepository, ShiftBackupRepository shiftBackupRepository) {
         this.eventService = eventService;
         this.eventRepository = eventRepository;
         this.waiterService = waiterService;
         this.waiterRepository = waiterRepository;
+        this.shiftBackupRepository = shiftBackupRepository;
     }
 
     public WorkShiftResponse createWorkShift(Long eventId){
+        ShiftBackup shiftBackup = new ShiftBackup();
          Event event = eventService.readEvent(eventId);
+        shiftBackup.setEvent(event);
          String message = "";
          int waitersNeeded = 0;
 
@@ -57,6 +63,7 @@ public class WorkShiftService {
             workShift.addAll(secondaryWaiters);
             event.setWaiters(workShift);
             eventRepository.save(event);
+            saveEventsInWaiter(workShift, event);
             int extraWaitersNeeded = waitersNeeded - totalWaiters;
             return WorkShiftResponse.builder()
                     .workShift(workShift)
@@ -78,6 +85,7 @@ public class WorkShiftService {
         /* -------------------------------------------------------------------------- TURNO DELLE DONNE -------------------------------------------------------------------------- */
 
         List<Waiter> workShift = new ArrayList<>(getShift(femaleWaiters, waitersFemaleNeeded));
+        shiftBackup.setLastWaiterFemale(workShift.get(workShift.size() - 1));
 
         /* -------------------------------------------------------------------------- TURNO DEGLI UOMINI -------------------------------------------------------------------------- */
 
@@ -88,12 +96,17 @@ public class WorkShiftService {
                 List<Waiter> femaleWaitersAvaible = getAvaibleWaitersToWork(updatedFemaleWaiters, workShift);
                 if(femaleWaitersAvaible.size() >= addictionalWaitersNeeded){
                     workShift.addAll(getShift(updatedFemaleWaiters, addictionalWaitersNeeded));
+                    shiftBackup.setLastWaiterFemale(workShift.get(workShift.size() - 1));
                 }
             }
             workShift.addAll(maleWaiters);
+            shiftBackup.setLastWaiterMale(workShift.get(workShift.size() - 1));
             workShift.addAll(secondaryWaiters);
+            shiftBackup.setLastWaiterSecondary(workShift.get(workShift.size() - 1));
             event.setWaiters(workShift);
             eventRepository.save(event);
+            saveEventsInWaiter(workShift, event);
+            shiftBackupRepository.save(shiftBackup);
             message = message + (" - Il turno comprende tutti i ragazzi, il loro turno non è stato aggiornato, sono state aggiunte ragazze n. "+addictionalWaitersNeeded);
             return WorkShiftResponse.builder()
                     .workShift(workShift)
@@ -105,16 +118,38 @@ public class WorkShiftService {
             int secondaryWaitersNeeded = Math.round((float)waitersMaleNeeded / 3);
             int tempWaitersMaleNeeded = waitersMaleNeeded - secondaryWaitersNeeded;
             workShift.addAll(getShift(maleWaiters, tempWaitersMaleNeeded));
+            shiftBackup.setLastWaiterMale(workShift.get(workShift.size() - 1));
             workShift.addAll(getShift(secondaryWaiters, secondaryWaitersNeeded));
+            shiftBackup.setLastWaiterSecondary(workShift.get(workShift.size() - 1));
         } else{
             workShift.addAll(getShift(maleWaiters, waitersMaleNeeded));
+            shiftBackup.setLastWaiterMale(workShift.get(workShift.size() - 1));
+            shiftBackup.setLastWaiterSecondary(secondaryWaiters.get(getIndexofLatestWaiter(secondaryWaiters)));
         }
 
+        /* -------------------------------------------------------------------------- FINE -------------------------------------------------------------------------- */
+
+        event.setWaiters(workShift);
+        eventRepository.save(event);
+        saveEventsInWaiter(workShift, event);
+        shiftBackupRepository.save(shiftBackup);
         return WorkShiftResponse.builder()
                 .workShift(workShift)
                 .Message(message)
                 .build();
     }
+
+    public void saveEventsInWaiter(List<Waiter> workShift, Event event){
+        for(Waiter w : workShift){
+            Waiter waiter = waiterService.readWaiter(w.getId());
+            if(waiter.getEvents() == null){
+                waiter.setEvents(new ArrayList<>());
+            }
+            waiter.getEvents().add(event);
+            waiterRepository.save(waiter);
+        }
+    }
+
 
     public int getIndexofLatestWaiter(List<Waiter> waiters) {
         int index = 0;
