@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class EventService {
@@ -64,5 +65,9 @@ public class EventService {
             return events.get(0); // Ritorna l'evento più vicino prima della data data
         }
         throw new RuntimeException("Nessun evento trovato con data precedente a " +currentDate);
+    }
+
+    public Optional<Event> existingEventByDateAndMealType(LocalDate date, Event.MealType mealType, Long eventId){
+        return eventRepository.findByDateAndMealTypeExcludingEvent(date, mealType, eventId);
     }
 }

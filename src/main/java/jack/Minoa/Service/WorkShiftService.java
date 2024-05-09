@@ -30,23 +30,23 @@ public class WorkShiftService {
 
     public WorkShiftResponse createWorkShift(Long eventId){
         ShiftBackup shiftBackup = new ShiftBackup();
-         Event event = eventService.readEvent(eventId);
+        Event event = eventService.readEvent(eventId);
         shiftBackup.setEvent(event);
-         String message = "";
-         int waitersNeeded = 0;
+        String message = "";
 
-         //Calcolo quanti camerieri servono in base al tipo di evento
-         if(event.getEventstype().equals(Event.Eventstype.MATRIMONIO)){
-             waitersNeeded = (Math.round((float) event.getDiners() / 12.5f)) - 1;
-         } else{
-             if(event.getEventstype().equals(Event.Eventstype.BANCHETTO)){
-                 waitersNeeded = Math.round(((float) event.getDiners() / 15f)) -1;
-             }
-         }
+        //Calcolo quanti camerieri servono in base al tipo di evento
+        int waitersNeeded = getWaitersNeeded(event);
 
         List<Waiter> maleWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.MALE);
         List<Waiter> femaleWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.FEMALE);
         List<Waiter> secondaryWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.SECONDARY);
+        Optional<Event> existingEvent =eventService.existingEventByDateAndMealType(event.getDate(), event.getMealType(), eventId);
+
+        if(existingEvent.isPresent()){
+            maleWaiters = getAvailableWaitersToWork(maleWaiters, existingEvent.get().getWaiters());
+            femaleWaiters = getAvailableWaitersToWork(femaleWaiters, existingEvent.get().getWaiters());
+            secondaryWaiters = getAvailableWaitersToWork(secondaryWaiters, existingEvent.get().getWaiters());
+        }
 
         int maleWaiterSize = maleWaiters.size();
         int femaleWaiterSize = femaleWaiters.size();
@@ -71,16 +71,10 @@ public class WorkShiftService {
                     .build();
         }
 
-         //Stabilisco quanti camerieri delle diverse categorie mi servono
-         int waitersMaleNeeded = 0;
-         int waitersFemaleNeeded = 0;
-         if(waitersNeeded % 2 == 1){
-             waitersNeeded = waitersNeeded - 1;
-             waitersMaleNeeded = waitersNeeded / 2;
-             waitersFemaleNeeded = (waitersNeeded / 2) + 1;
-         } else{
-             waitersMaleNeeded = waitersFemaleNeeded = waitersNeeded / 2;
-         }
+        //Stabilisco quanti camerieri delle diverse categorie mi servono
+        Map<String, Integer> waitersByGender = calculateWaitersNeededByGender(waitersNeeded);
+        int waitersMaleNeeded = waitersByGender.get("male");
+        int waitersFemaleNeeded = waitersByGender.get("female");
 
         /* -------------------------------------------------------------------------- TURNO DELLE DONNE -------------------------------------------------------------------------- */
 
@@ -93,8 +87,8 @@ public class WorkShiftService {
             int addictionalWaitersNeeded = waitersMaleNeeded - (maleWaiterSize + secondaryWaiterSize);
             if(addictionalWaitersNeeded != 0){
                 List<Waiter> updatedFemaleWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.FEMALE);
-                List<Waiter> femaleWaitersAvaible = getAvaibleWaitersToWork(updatedFemaleWaiters, workShift);
-                if(femaleWaitersAvaible.size() >= addictionalWaitersNeeded){
+                List<Waiter> femaleWaitersAvailable = getAvailableWaitersToWork(updatedFemaleWaiters, workShift);
+                if(femaleWaitersAvailable.size() >= addictionalWaitersNeeded){
                     workShift.addAll(getShift(updatedFemaleWaiters, addictionalWaitersNeeded));
                     shiftBackup.setLastWaiterFemale(workShift.get(workShift.size() - 1));
                 }
@@ -149,7 +143,6 @@ public class WorkShiftService {
             waiterRepository.save(waiter);
         }
     }
-
 
     public int getIndexofLatestWaiter(List<Waiter> waiters) {
         int index = 0;
@@ -210,16 +203,52 @@ public class WorkShiftService {
         waiterRepository.save(newestLatestWaiter);
     }
 
-    public List<Waiter> getAvaibleWaitersToWork(List<Waiter> waiters, List<Waiter> workShift){
+    public List<Waiter> getAvailableWaitersToWork(List<Waiter> waiters, List<Waiter> workShift){
         List<Waiter> result = new ArrayList<>();
-        for(int i = 0; i < (waiters.size() -1); i++){
-            for(int j = 0; j < (workShift.size()-1); j++){
-                if(Objects.equals(waiters.get(i).getId(), workShift.get(j).getId())){
-                    result.add(waiters.get(i));
+
+        for(Waiter avaibleWaiter : waiters){
+            boolean isWorking = false;
+            for(Waiter workingWaiter : workShift){
+                if(Objects.equals(avaibleWaiter.getId(), workingWaiter.getId())){
+                    isWorking = true;
                     break;
                 }
+            }
+            if(!isWorking){
+                result.add(avaibleWaiter);
             }
         }
         return result;
     }
+
+    public int getWaitersNeeded(Event event) {
+        int diners = event.getDiners();
+
+        if (event.getEventstype().equals(Event.Eventstype.MATRIMONIO)) {
+            return Math.max(0, Math.round((float) diners / 12.5f) - 1);
+        }
+        if (event.getEventstype().equals(Event.Eventstype.BANCHETTO)) {
+            return Math.max(0, Math.round((float) diners / 15f) - 1);
+        }
+
+        throw new RuntimeException("Non è stato possibile calcolare il numero dei camerieri necessari");
+    }
+
+    public Map<String, Integer> calculateWaitersNeededByGender(int waitersNeeded) {
+        int waitersMaleNeeded = 0;
+        int waitersFemaleNeeded = 0;
+
+        if (waitersNeeded % 2 == 1) {
+            // Se il numero totale di camerieri necessari è dispari, sottrai uno per rendere pari
+            // poi dividi equamente, assegnando uno extra ai camerieri femminili
+            waitersMaleNeeded = waitersNeeded / 2;
+            waitersFemaleNeeded = waitersNeeded / 2 + 1;
+        } else {
+            // Se il numero è pari, distribuisci equamente tra maschi e femmine
+            waitersMaleNeeded = waitersFemaleNeeded = waitersNeeded / 2;
+        }
+
+        return Map.of("male", waitersMaleNeeded, "female", waitersFemaleNeeded);
+    }
+
 }
