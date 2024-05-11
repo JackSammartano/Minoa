@@ -1,7 +1,7 @@
 <h1 align="left">#Minoa</h1>
 
 <div align="left">
-  <img src="img/background.jpeg" height="100" alt="descrizione dell'immagine" />
+  <img src="img/background.jpeg" height="500" alt="descrizione dell'immagine" />
 </div>
 
 ###
