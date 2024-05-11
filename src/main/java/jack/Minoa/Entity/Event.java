@@ -1,5 +1,6 @@
 package jack.Minoa.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
@@ -40,5 +41,6 @@ public class Event {
             joinColumns = @JoinColumn(name = "event_id"), // Colonna che fa riferimento a Event
             inverseJoinColumns = @JoinColumn(name = "waiter_id") // Colonna che fa riferimento a Waiter
     )
+    @JsonIgnore
     private List<Waiter> waiters;
 }

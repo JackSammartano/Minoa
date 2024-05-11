@@ -1,5 +1,6 @@
 package jack.Minoa.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,8 +32,10 @@ public class Waiter {
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "user_id", referencedColumnName = "id")
+    @JsonIgnore
     private User user;
 
     @ManyToMany(mappedBy = "waiters")
+    @JsonIgnore
     private List<Event> events; // relazione inversa
 }

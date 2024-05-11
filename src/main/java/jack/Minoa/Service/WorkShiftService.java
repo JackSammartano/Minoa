@@ -37,16 +37,12 @@ public class WorkShiftService {
         //Calcolo quanti camerieri servono in base al tipo di evento
         int waitersNeeded = getWaitersNeeded(event);
 
-        List<Waiter> maleWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.MALE);
-        List<Waiter> femaleWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.FEMALE);
-        List<Waiter> secondaryWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.SECONDARY);
-        Optional<Event> existingEvent =eventService.existingEventByDateAndMealType(event.getDate(), event.getMealType(), eventId);
-
-        if(existingEvent.isPresent()){
-            maleWaiters = getAvailableWaitersToWork(maleWaiters, existingEvent.get().getWaiters());
-            femaleWaiters = getAvailableWaitersToWork(femaleWaiters, existingEvent.get().getWaiters());
-            secondaryWaiters = getAvailableWaitersToWork(secondaryWaiters, existingEvent.get().getWaiters());
-        }
+        //Costruisco le liste dei camerieri che mi servono
+        Optional<Event> existingEvent = eventService.existingEventByDateAndMealType(event.getDate(), event.getMealType(), eventId);
+        Map<String, List<Waiter>> waitersList = calculateWaitersList(existingEvent);
+        List<Waiter> maleWaiters = waitersList.get("male");
+        List<Waiter> femaleWaiters = waitersList.get("female");
+        List<Waiter> secondaryWaiters = waitersList.get("secondary");
 
         int maleWaiterSize = maleWaiters.size();
         int femaleWaiterSize = femaleWaiters.size();
@@ -64,6 +60,7 @@ public class WorkShiftService {
             event.setWaiters(workShift);
             eventRepository.save(event);
             saveEventsInWaiter(workShift, event);
+
             int extraWaitersNeeded = waitersNeeded - totalWaiters;
             return WorkShiftResponse.builder()
                     .workShift(workShift)
@@ -78,7 +75,7 @@ public class WorkShiftService {
 
         /* -------------------------------------------------------------------------- TURNO DELLE DONNE -------------------------------------------------------------------------- */
 
-        List<Waiter> workShift = new ArrayList<>(getShift(femaleWaiters, waitersFemaleNeeded));
+        List<Waiter> workShift = new ArrayList<>(getShift(femaleWaiters, waitersFemaleNeeded,existingEvent));
         shiftBackup.setLastWaiterFemale(workShift.get(workShift.size() - 1));
 
         /* -------------------------------------------------------------------------- TURNO DEGLI UOMINI -------------------------------------------------------------------------- */
@@ -89,7 +86,7 @@ public class WorkShiftService {
                 List<Waiter> updatedFemaleWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.FEMALE);
                 List<Waiter> femaleWaitersAvailable = getAvailableWaitersToWork(updatedFemaleWaiters, workShift);
                 if(femaleWaitersAvailable.size() >= addictionalWaitersNeeded){
-                    workShift.addAll(getShift(updatedFemaleWaiters, addictionalWaitersNeeded));
+                    workShift.addAll(getShift(updatedFemaleWaiters, addictionalWaitersNeeded,existingEvent));
                     shiftBackup.setLastWaiterFemale(workShift.get(workShift.size() - 1));
                 }
             }
@@ -109,16 +106,16 @@ public class WorkShiftService {
         }
 
         if(waitersMaleNeeded > 2){
-            int secondaryWaitersNeeded = Math.round((float)waitersMaleNeeded / 3);
+            int secondaryWaitersNeeded = (int) Math.floor((float) waitersMaleNeeded / 3);
             int tempWaitersMaleNeeded = waitersMaleNeeded - secondaryWaitersNeeded;
-            workShift.addAll(getShift(maleWaiters, tempWaitersMaleNeeded));
+            workShift.addAll(getShift(maleWaiters, tempWaitersMaleNeeded,existingEvent));
             shiftBackup.setLastWaiterMale(workShift.get(workShift.size() - 1));
-            workShift.addAll(getShift(secondaryWaiters, secondaryWaitersNeeded));
+            workShift.addAll(getShift(secondaryWaiters, secondaryWaitersNeeded,existingEvent));
             shiftBackup.setLastWaiterSecondary(workShift.get(workShift.size() - 1));
         } else{
-            workShift.addAll(getShift(maleWaiters, waitersMaleNeeded));
+            workShift.addAll(getShift(maleWaiters, waitersMaleNeeded,existingEvent));
             shiftBackup.setLastWaiterMale(workShift.get(workShift.size() - 1));
-            shiftBackup.setLastWaiterSecondary(secondaryWaiters.get(getIndexofLatestWaiter(secondaryWaiters)));
+            shiftBackup.setLastWaiterSecondary(secondaryWaiters.get(getLatestWaiterIndex(secondaryWaiters)));
         }
 
         /* -------------------------------------------------------------------------- FINE -------------------------------------------------------------------------- */
@@ -144,7 +141,7 @@ public class WorkShiftService {
         }
     }
 
-    public int getIndexofLatestWaiter(List<Waiter> waiters) {
+    public int getLatestWaiterIndex(List<Waiter> waiters) {
         int index = 0;
         for (Waiter waiter : waiters) {
             if (waiter.isLatest()) {
@@ -155,42 +152,45 @@ public class WorkShiftService {
         return -1; // Se non viene trovato alcun cameriere con latest = true
     }
 
-    /**
-     * Calcola e restituisce un elenco di camerieri selezionati per un turno, basandosi sull'ordine di posizione.
-     *
-     * @param waiters La lista completa di camerieri disponibili. Ogni cameriere deve avere un metodo `getPositionOrder()`
-     *                che ritorna un intero rappresentante la loro posizione nell'ordine di lavoro.
-     * @param n Il numero di camerieri desiderati per il turno. Se `n` è maggiore o uguale al numero di camerieri disponibili,
-     *          la funzione restituirà tutti i camerieri presenti nell'elenco.
-     * @return Una lista di camerieri selezionati per il turno. La selezione inizia dal cameriere successivo a quello che ha lavorato
-     *         per ultimo, circolando alla fine della lista se necessario, fino a raggiungere il numero richiesto `n`.
-     * @throws IndexOutOfBoundsException Se l'indice calcolato supera i limiti dell'array senza una gestione appropriata.
-     *         Questa eccezione può verificarsi se la funzione `getIndexofLatestWaiter` ritorna un indice non valido o se non ci sono controlli
-     *         adeguati quando `startIndex` viene decrementato.
-     *
-     * Dettagli sull'implementazione:
-     * 1. Se `n` è maggiore o uguale alla dimensione della lista `waiters`, la funzione restituisce una copia dell'intera lista.
-     * 2. I camerieri vengono ordinati utilizzando un comparatore basato sul metodo `getPositionOrder`.
-     * 3. La selezione dei camerieri inizia dal cameriere successivo a quello che ha lavorato per ultimo, come determinato dalla funzione `getIndexofLatestWaiter`.
-     * 4. La funzione cicla attraverso la lista dei camerieri per selezionare `n` camerieri, ripartendo dall'inizio della lista se necessario.
-     * 5. Alla fine, la funzione `updateLatestWaiters` viene chiamata per aggiornare il registro degli ultimi camerieri che hanno lavorato.
-     */
-    public List<Waiter> getShift (List<Waiter> waiters, int n){
+
+    public List<Waiter> getShift (List<Waiter> waiters, int n, Optional<Event> existingEvent){
         if(n >= waiters.size()){
             return new ArrayList<>(waiters);
         }
+        int startIndex = 0;
         List<Waiter> result = new ArrayList<>();
         waiters.sort(Comparator.comparingInt(Waiter::getPositionOrder));
-        int startIndex = getIndexofLatestWaiter(waiters) + 1;
-        int condition = 0;
-        for(int i = startIndex; condition < n; i++){
-            if(i > (waiters.size() - 1)){
-                i = 0;
+        if(existingEvent.isPresent()){
+            List<Waiter> originalWaiters = waiterService.getAllWaitersByBelongingGroup(waiters.get(0).getBelongingGroup());
+            Waiter firstToWorkWaiter = getFirstWaiterToWork(originalWaiters);
+            Waiter latestWaiterToWork = originalWaiters.get(getLatestWaiterIndex(originalWaiters));
+            for(Waiter w : waiters){
+                if (Objects.equals(w.getId(), firstToWorkWaiter.getId())) {
+                    break;
+                }
+                startIndex++;
             }
-            result.add(waiters.get(i));
-            condition++;
+            int condition = 0;
+            for(int i = startIndex; condition < n; i++){
+                if(i > (waiters.size() - 1)){
+                    i = 0;
+                }
+                result.add(waiters.get(i));
+                condition++;
+            }
+            updateLatestWaiters(latestWaiterToWork, result.get(result.size() - 1));
+        } else{
+            startIndex = getLatestWaiterIndex(waiters) + 1;
+            int condition = 0;
+            for(int i = startIndex; condition < n; i++){
+                if(i > (waiters.size() - 1)){
+                    i = 0;
+                }
+                result.add(waiters.get(i));
+                condition++;
+            }
+            updateLatestWaiters(waiters.get(startIndex - 1), result.get(result.size() - 1));
         }
-        updateLatestWaiters(waiters.get(startIndex - 1), result.get(result.size() - 1));
         return result;
     }
 
@@ -249,6 +249,25 @@ public class WorkShiftService {
         }
 
         return Map.of("male", waitersMaleNeeded, "female", waitersFemaleNeeded);
+    }
+
+    public Map<String, List<Waiter>> calculateWaitersList(Optional<Event> existingEvent){
+
+        List<Waiter> maleWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.MALE);
+        List<Waiter> femaleWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.FEMALE);
+        List<Waiter> secondaryWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.SECONDARY);
+
+        if(existingEvent.isPresent()){
+            maleWaiters = getAvailableWaitersToWork(maleWaiters, existingEvent.get().getWaiters());
+            femaleWaiters = getAvailableWaitersToWork(femaleWaiters, existingEvent.get().getWaiters());
+            secondaryWaiters = getAvailableWaitersToWork(secondaryWaiters, existingEvent.get().getWaiters());
+        }
+        return Map.of("male", maleWaiters, "female", femaleWaiters, "secondary", secondaryWaiters);
+    }
+
+    public Waiter getFirstWaiterToWork(List<Waiter> waiters){
+        int index = getLatestWaiterIndex(waiters);
+        return waiters.get(index + 1);
     }
 
 }
