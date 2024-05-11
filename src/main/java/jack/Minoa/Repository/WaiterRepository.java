@@ -14,4 +14,6 @@ public interface WaiterRepository extends JpaRepository<Waiter, Long> {
     @Query("SELECT w FROM Waiter w WHERE w.belongingGroup = :belongingGroup")
     List<Waiter> findByBelongingGroup(@Param("belongingGroup") Waiter.BelongingGroup belongingGroup);
 
+    Waiter findByNameAndSurname(String name, String surname);
+
 }

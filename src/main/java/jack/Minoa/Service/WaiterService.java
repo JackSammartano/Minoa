@@ -104,4 +104,8 @@ public class  WaiterService {
         }
         return result;
     }
+
+    public Waiter getWaiterByNameAndSurname(String name, String surname) {
+        return waiterRepository.findByNameAndSurname(name, surname);
+    }
 }

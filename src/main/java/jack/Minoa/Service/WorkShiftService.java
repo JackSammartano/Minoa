@@ -32,6 +32,7 @@ public class WorkShiftService {
         ShiftBackup shiftBackup = new ShiftBackup();
         Event event = eventService.readEvent(eventId);
         shiftBackup.setEvent(event);
+        List<Waiter> workShift = new ArrayList<>();
         String message = "";
 
         //Calcolo quanti camerieri servono in base al tipo di evento
@@ -53,7 +54,6 @@ public class WorkShiftService {
         //Caso specifico in cui il numero totale dei camerieri richiesti è maggiore o uguale al numero totale dei camerieri presenti in squadra
         //in questo caso non devo aggiornare i campi Latest dei camerieri, il turno non cambia e viene segnalato quanti EXTRA servono
         if(waitersNeeded >= totalWaiters ){
-            List<Waiter> workShift = new ArrayList<>();
             workShift.addAll(maleWaiters);
             workShift.addAll(femaleWaiters);
             workShift.addAll(secondaryWaiters);
@@ -73,20 +73,28 @@ public class WorkShiftService {
         int waitersMaleNeeded = waitersByGender.get("male");
         int waitersFemaleNeeded = waitersByGender.get("female");
 
+
+        if(event.getEventLocation().equals(Event.EventLocation.COLORADO)){
+            Waiter coloradoDirector = waiterService.getWaiterByNameAndSurname("Enzo", "Marrone");
+            workShift.add(coloradoDirector);
+            waitersMaleNeeded--;
+
+        }
         /* -------------------------------------------------------------------------- TURNO DELLE DONNE -------------------------------------------------------------------------- */
 
-        List<Waiter> workShift = new ArrayList<>(getShift(femaleWaiters, waitersFemaleNeeded,existingEvent));
-        shiftBackup.setLastWaiterFemale(workShift.get(workShift.size() - 1));
-
+        if(waitersFemaleNeeded != 0){
+            workShift.addAll(getShift(femaleWaiters, waitersFemaleNeeded,existingEvent,workShift));
+            shiftBackup.setLastWaiterFemale(workShift.get(workShift.size() - 1));
+        }
         /* -------------------------------------------------------------------------- TURNO DEGLI UOMINI -------------------------------------------------------------------------- */
 
         if(waitersMaleNeeded >= (maleWaiterSize + secondaryWaiterSize)){
-            int addictionalWaitersNeeded = waitersMaleNeeded - (maleWaiterSize + secondaryWaiterSize);
-            if(addictionalWaitersNeeded != 0){
+            int additionalWaitersNeeded = waitersMaleNeeded - (maleWaiterSize + secondaryWaiterSize);
+            if(additionalWaitersNeeded != 0){
                 List<Waiter> updatedFemaleWaiters = waiterService.getAllWaitersByBelongingGroup(Waiter.BelongingGroup.FEMALE);
                 List<Waiter> femaleWaitersAvailable = getAvailableWaitersToWork(updatedFemaleWaiters, workShift);
-                if(femaleWaitersAvailable.size() >= addictionalWaitersNeeded){
-                    workShift.addAll(getShift(updatedFemaleWaiters, addictionalWaitersNeeded,existingEvent));
+                if(femaleWaitersAvailable.size() >= additionalWaitersNeeded){
+                    workShift.addAll(getShift(updatedFemaleWaiters, additionalWaitersNeeded,existingEvent,workShift));
                     shiftBackup.setLastWaiterFemale(workShift.get(workShift.size() - 1));
                 }
             }
@@ -98,26 +106,27 @@ public class WorkShiftService {
             eventRepository.save(event);
             saveEventsInWaiter(workShift, event);
             shiftBackupRepository.save(shiftBackup);
-            message = message + (" - Il turno comprende tutti i ragazzi, il loro turno non è stato aggiornato, sono state aggiunte ragazze n. "+addictionalWaitersNeeded);
+            message = message + (" - Il turno comprende tutti i ragazzi, il loro turno non è stato aggiornato, sono state aggiunte ragazze n. "+additionalWaitersNeeded);
             return WorkShiftResponse.builder()
                     .workShift(workShift)
                     .Message(message)
                     .build();
         }
 
-        if(waitersMaleNeeded > 2){
-            int secondaryWaitersNeeded = (int) Math.floor((float) waitersMaleNeeded / 3);
-            int tempWaitersMaleNeeded = waitersMaleNeeded - secondaryWaitersNeeded;
-            workShift.addAll(getShift(maleWaiters, tempWaitersMaleNeeded,existingEvent));
-            shiftBackup.setLastWaiterMale(workShift.get(workShift.size() - 1));
-            workShift.addAll(getShift(secondaryWaiters, secondaryWaitersNeeded,existingEvent));
-            shiftBackup.setLastWaiterSecondary(workShift.get(workShift.size() - 1));
-        } else{
-            workShift.addAll(getShift(maleWaiters, waitersMaleNeeded,existingEvent));
-            shiftBackup.setLastWaiterMale(workShift.get(workShift.size() - 1));
-            shiftBackup.setLastWaiterSecondary(secondaryWaiters.get(getLatestWaiterIndex(secondaryWaiters)));
+        if(waitersMaleNeeded != 0){
+            if(waitersMaleNeeded > 2){
+                int secondaryWaitersNeeded = (int) Math.floor((float) waitersMaleNeeded / 3);
+                int tempWaitersMaleNeeded = waitersMaleNeeded - secondaryWaitersNeeded;
+                workShift.addAll(getShift(maleWaiters, tempWaitersMaleNeeded,existingEvent,workShift));
+                shiftBackup.setLastWaiterMale(workShift.get(workShift.size() - 1));
+                workShift.addAll(getShift(secondaryWaiters, secondaryWaitersNeeded,existingEvent,workShift));
+                shiftBackup.setLastWaiterSecondary(workShift.get(workShift.size() - 1));
+            } else{
+                workShift.addAll(getShift(maleWaiters, waitersMaleNeeded,existingEvent,workShift));
+                shiftBackup.setLastWaiterMale(workShift.get(workShift.size() - 1));
+                shiftBackup.setLastWaiterSecondary(secondaryWaiters.get(getLatestWaiterIndex(secondaryWaiters)));
+            }
         }
-
         /* -------------------------------------------------------------------------- FINE -------------------------------------------------------------------------- */
 
         event.setWaiters(workShift);
@@ -153,7 +162,7 @@ public class WorkShiftService {
     }
 
 
-    public List<Waiter> getShift (List<Waiter> waiters, int n, Optional<Event> existingEvent){
+    public List<Waiter> getShift (List<Waiter> waiters, int n, Optional<Event> existingEvent, List<Waiter> workShift){
         if(n >= waiters.size()){
             return new ArrayList<>(waiters);
         }
@@ -170,28 +179,27 @@ public class WorkShiftService {
                 }
                 startIndex++;
             }
-            int condition = 0;
-            for(int i = startIndex; condition < n; i++){
-                if(i > (waiters.size() - 1)){
-                    i = 0;
-                }
-                result.add(waiters.get(i));
-                condition++;
-            }
+            startConfiguration(waiters, n, workShift, startIndex, result);
             updateLatestWaiters(latestWaiterToWork, result.get(result.size() - 1));
         } else{
             startIndex = getLatestWaiterIndex(waiters) + 1;
-            int condition = 0;
-            for(int i = startIndex; condition < n; i++){
-                if(i > (waiters.size() - 1)){
-                    i = 0;
-                }
-                result.add(waiters.get(i));
-                condition++;
-            }
+            startConfiguration(waiters, n, workShift, startIndex, result);
             updateLatestWaiters(waiters.get(startIndex - 1), result.get(result.size() - 1));
         }
         return result;
+    }
+
+    private void startConfiguration(List<Waiter> waiters, int n, List<Waiter> workShift, int startIndex, List<Waiter> result) {
+        int condition = 0;
+        for(int i = startIndex; condition < n; i++){
+            if(i > (waiters.size() - 1)){
+                i = 0;
+            }
+            if(!workShift.contains(waiters.get(i))){
+                result.add(waiters.get(i));
+                condition++;
+            }
+        }
     }
 
     public void updateLatestWaiters(Waiter previousLatest, Waiter newestLatest){
@@ -223,15 +231,18 @@ public class WorkShiftService {
 
     public int getWaitersNeeded(Event event) {
         int diners = event.getDiners();
+        int result = 0;
 
         if (event.getEventstype().equals(Event.Eventstype.MATRIMONIO)) {
-            return Math.max(0, Math.round((float) diners / 12.5f) - 1);
+            result = Math.max(0, Math.round((float) diners / 12.5f) - 1);
         }
         if (event.getEventstype().equals(Event.Eventstype.BANCHETTO)) {
-            return Math.max(0, Math.round((float) diners / 15f) - 1);
+            result = Math.max(0, Math.round((float) diners / 15f) - 1);
         }
-
-        throw new RuntimeException("Non è stato possibile calcolare il numero dei camerieri necessari");
+        if (event.getEventLocation().equals(Event.EventLocation.COLORADO)) {
+            result++;
+        }
+        return result;
     }
 
     public Map<String, Integer> calculateWaitersNeededByGender(int waitersNeeded) {
@@ -241,8 +252,9 @@ public class WorkShiftService {
         if (waitersNeeded % 2 == 1) {
             // Se il numero totale di camerieri necessari è dispari, sottrai uno per rendere pari
             // poi dividi equamente, assegnando uno extra ai camerieri femminili
+            waitersNeeded--;
             waitersMaleNeeded = waitersNeeded / 2;
-            waitersFemaleNeeded = waitersNeeded / 2 + 1;
+            waitersFemaleNeeded = (waitersNeeded / 2) + 1;
         } else {
             // Se il numero è pari, distribuisci equamente tra maschi e femmine
             waitersMaleNeeded = waitersFemaleNeeded = waitersNeeded / 2;
