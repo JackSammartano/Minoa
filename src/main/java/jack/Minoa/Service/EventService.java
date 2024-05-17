@@ -1,12 +1,14 @@
 package jack.Minoa.Service;
 
 import jack.Minoa.Entity.Event;
+import jack.Minoa.Entity.ShiftBackup;
 import jack.Minoa.Entity.Waiter;
 import jack.Minoa.Repository.EventRepository;
 import jack.Minoa.Repository.ShiftBackupRepository;
 import jack.Minoa.Repository.WaiterRepository;
 import jack.Minoa.Request.EventRequest;
 
+import jack.Minoa.Response.WorkShiftResponse;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,11 +23,13 @@ public class EventService {
     private final EventRepository eventRepository;
     private final ShiftBackupService shiftBackupService;
     private final WaiterService waiterService;
+    private final WorkShiftService workShiftService;
 
-    public EventService(EventRepository eventRepository, ShiftBackupService shiftBackupService, ShiftBackupRepository shiftBackupRepository, WaiterRepository waiterRepository, ShiftBackupService shiftBackupService1, WaiterService waiterService) {
+    public EventService(EventRepository eventRepository, ShiftBackupService shiftBackupService, ShiftBackupRepository shiftBackupRepository, WaiterRepository waiterRepository, ShiftBackupService shiftBackupService1, WaiterService waiterService, WorkShiftService workShiftService) {
         this.eventRepository = eventRepository;
         this.shiftBackupService = shiftBackupService1;
         this.waiterService = waiterService;
+        this.workShiftService = workShiftService;
     }
 
     public Event createEvent(EventRequest eventRequest){
@@ -51,11 +55,36 @@ public class EventService {
         }
         else{
             //Prima di eliminare l'evento, devo ripristinare lo stato precedente nell'ordine dei camerieri
+
             Event previousEvent = getPreviousEvent(event.getDate());
             List<Waiter> newestLatestWaiter = shiftBackupService.getLatestWaitersFromEvent(previousEvent);
             waiterService.resetLatestWaiters(newestLatestWaiter);
+            ShiftBackup currentShiftBackup = shiftBackupService.getShiftbackupFromEvent(event);
+            shiftBackupService.deleteShiftBackup(currentShiftBackup.getId());
             eventRepository.delete(event);
         }
+    }
+
+    public Event updateEvent(Long id, EventRequest eventRequest){
+        Event event = readEvent(id);
+        //Se uno di questi campi viene modificato devo forzare il ricalcolo del turno corrispondente
+        if (event.getEventstype() != eventRequest.getEventstype() ||
+                event.getDiners() != eventRequest.getDiners() ||
+                event.getEventLocation() != eventRequest.getEventLocation()) {
+            if(!event.getWaiters().isEmpty()){
+                deleteEvent(id);
+                Event forcedEvent = createEvent(eventRequest);
+                WorkShiftResponse workShift = workShiftService.createWorkShift(forcedEvent.getId());
+                return forcedEvent;
+            }
+        }
+        event.setName(eventRequest.getName());
+        event.setMealType(eventRequest.getMealType());
+        event.setDate(eventRequest.getDate());
+        event.setEventLocation(eventRequest.getEventLocation());
+        event.setEventstype(eventRequest.getEventstype());
+        event.setDiners(eventRequest.getDiners());
+        return event;
     }
 
     public Event getPreviousEvent(LocalDate currentDate) {

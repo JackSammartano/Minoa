@@ -60,4 +60,8 @@ public class ShiftBackupService {
         ShiftBackup shiftBackup = shiftBackupRepository.findShiftBackupByEvent(event);
         return Arrays.asList(shiftBackup.getLastWaiterMale(), shiftBackup.getLastWaiterFemale(), shiftBackup.getLastWaiterSecondary());
     }
+
+    public ShiftBackup getShiftbackupFromEvent(Event event){
+        return shiftBackupRepository.findShiftBackupByEvent(event);
+    }
 }
