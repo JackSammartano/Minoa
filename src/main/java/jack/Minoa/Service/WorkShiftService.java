@@ -139,6 +139,14 @@ public class WorkShiftService {
                 .build();
     }
 
+    public List<Waiter> readWorkShift(Long eventId){
+        Event event = eventService.readEvent(eventId);
+        if(event.getWaiters().isEmpty()){
+            throw new RuntimeException("WorkShihf not found in event with id " +eventId);
+        }
+        return event.getWaiters();
+    }
+
     public void saveEventsInWaiter(List<Waiter> workShift, Event event){
         for(Waiter w : workShift){
             Waiter waiter = waiterService.readWaiter(w.getId());
