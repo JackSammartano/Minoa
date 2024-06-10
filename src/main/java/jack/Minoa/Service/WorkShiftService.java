@@ -7,6 +7,7 @@ import jack.Minoa.Repository.EventRepository;
 import jack.Minoa.Repository.ShiftBackupRepository;
 import jack.Minoa.Repository.WaiterRepository;
 import jack.Minoa.Response.WorkShiftResponse;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -20,7 +21,7 @@ public class WorkShiftService {
     private final WaiterRepository waiterRepository;
     private final ShiftBackupRepository shiftBackupRepository;
 
-    public WorkShiftService(EventService eventService, EventRepository eventRepository, WaiterService waiterService, WaiterRepository waiterRepository, ShiftBackupRepository shiftBackupRepository) {
+    public WorkShiftService(@Lazy EventService eventService, EventRepository eventRepository, WaiterService waiterService, WaiterRepository waiterRepository, ShiftBackupRepository shiftBackupRepository) {
         this.eventService = eventService;
         this.eventRepository = eventRepository;
         this.waiterService = waiterService;
